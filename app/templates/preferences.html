@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Set Your Chatbot's Vibe</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+  <!-- Load custom fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;700&family=Great+Vibes&display=swap" rel="stylesheet">
+</head>
+<body>
+  <div class="auth-container">
+    <h2>Choose Your Chatbot's Vibe</h2>
+    <p>Select the personality you want your chatbot to adopt:</p>
+    <form action="/preferences" method="post">
+      <div class="option">
+        <input type="radio" id="emo" name="personality" value="emo" required>
+        <label for="emo">Emo</label>
+      </div>
+      <div class="option">
+        <input type="radio" id="romantic" name="personality" value="romantic">
+        <label for="romantic">Romantic</label>
+      </div>
+      <div class="option">
+        <input type="radio" id="funny" name="personality" value="funny">
+        <label for="funny">Funny</label>
+      </div>
+      <div class="option">
+        <input type="radio" id="serious" name="personality" value="serious">
+        <label for="serious">Serious</label>
+      </div>
+      <div class="option">
+        <input type="radio" id="playful" name="personality" value="playful">
+        <label for="playful">Playful</label>
+      </div>
+      <div class="option">
+        <input type="radio" id="mysterious" name="personality" value="mysterious">
+        <label for="mysterious">Mysterious</label>
+      </div>
+      <button type="submit">Save My Vibe</button>
+    </form>
+  </div>
+</body>
+</html>

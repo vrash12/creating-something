@@ -1,0 +1,192 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <!-- Responsive meta tag -->
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Raven - Your Emo Valentine Chatbot</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+  <!-- Load custom fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Great+Vibes&family=Montserrat:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+  <header>
+    <h1>Raven</h1>
+    <p>Your moody, emo love advisor</p>
+    <nav class="nav-links">
+      <a href="/logout">Logout</a>
+      <button id="delete-history-btn">Delete History</button>
+    </nav>
+  </header>
+  <main id="chat-container">
+    <section id="chat-history" aria-live="polite">
+      {% for chat in chats %}
+        <article class="chat-entry">
+          <p class="user"><strong>You:</strong> {{ chat.user_message|safe }}</p>
+          <p class="bot"><strong>Raven:</strong> {{ chat.bot_response|safe }}</p>
+        </article>
+      {% endfor %}
+    </section>
+    <form id="chat-form">
+      <input type="text" id="message" placeholder="Type your message here..." aria-label="Type your message" required>
+      <button type="submit">Send</button>
+    </form>
+    <!-- Loading indicator -->
+    <div id="loading-indicator" class="loading" aria-hidden="true">
+      <div class="spinner"></div>
+      <span>Raven is typing...</span>
+    </div>
+    <!-- Container for suggestion buttons -->
+    <div id="suggestion-buttons" class="suggestions"></div>
+  </main>
+  <script>
+    document.addEventListener("DOMContentLoaded", () => {
+      // Helper: Convert markdown asterisks to <em> tags
+      const convertMarkdown = text => text.replace(/\*([^*]+)\*/g, "<em>$1</em>");
+      
+      // Typewriter effect: animate text word-by-word inside an element
+      const typeText = (element, text, delay, callback) => {
+        let cleanedText = text.trim();
+        if (cleanedText.toLowerCase().startsWith("raven:")) {
+          cleanedText = cleanedText.substring(6).trim();
+        }
+        element.innerHTML = "<strong>Raven:</strong> ";
+        const words = cleanedText.split(" ");
+        let i = 0;
+        const interval = setInterval(() => {
+          if (i < words.length) {
+            element.innerHTML += words[i] + " ";
+            i++;
+            document.getElementById('chat-history').scrollTop = document.getElementById('chat-history').scrollHeight;
+          } else {
+            clearInterval(interval);
+            if (callback) callback();
+          }
+        }, delay);
+      }
+      
+      const chatForm = document.getElementById('chat-form');
+      const messageInput = document.getElementById('message');
+      const chatHistoryDiv = document.getElementById('chat-history');
+      const loadingIndicator = document.getElementById('loading-indicator');
+      const suggestionContainer = document.getElementById('suggestion-buttons');
+      
+      chatForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const userMessage = messageInput.value.trim();
+        if (!userMessage) return;
+        messageInput.value = ''; // Clear input
+      
+        // Append user's message immediately
+        const userEntry = document.createElement('article');
+        userEntry.className = 'chat-entry';
+        userEntry.innerHTML = `<p class="user"><strong>You:</strong> ${userMessage}</p>`;
+        chatHistoryDiv.appendChild(userEntry);
+        chatHistoryDiv.scrollTop = chatHistoryDiv.scrollHeight;
+      
+        // Show loading indicator
+        loadingIndicator.style.display = 'flex';
+      
+        // Append an empty bot entry for typewriter effect
+        const botEntry = document.createElement('article');
+        botEntry.className = 'chat-entry';
+        const botParagraph = document.createElement('p');
+        botParagraph.className = 'bot';
+        botEntry.appendChild(botParagraph);
+        chatHistoryDiv.appendChild(botEntry);
+        chatHistoryDiv.scrollTop = chatHistoryDiv.scrollHeight;
+      
+        // Remove previous suggestion buttons
+        suggestionContainer.innerHTML = '';
+      
+        try {
+          // Send user message to back-end
+          const response = await fetch('/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ message: userMessage })
+          });
+          const data = await response.json();
+          let botReplyRaw = data.response;
+          let botReplyFormatted = convertMarkdown(botReplyRaw);
+      
+          // Hide loading indicator once response is received
+          loadingIndicator.style.display = 'none';
+      
+          // Animate Raven's response word-by-word (150ms per word)
+          typeText(botParagraph, botReplyFormatted, 150, () => {
+            // After typing, add a "Simplify" button to rephrase difficult language
+            const simplifyBtn = document.createElement('button');
+            simplifyBtn.className = 'simplify-btn';
+            simplifyBtn.textContent = "Simplify";
+            simplifyBtn.addEventListener('click', async () => {
+              simplifyBtn.disabled = true;
+              simplifyBtn.textContent = "Simplifying...";
+              try {
+                // Get the current bot text without the "Raven:" prefix.
+                const botText = botParagraph.innerText.replace("Raven:", "").trim();
+                const simplifyResponse = await fetch('/simplify', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({ text: botText })
+                });
+                const simplifyData = await simplifyResponse.json();
+                if (simplifyData.simplified) {
+                  botParagraph.innerHTML = `<strong>Raven:</strong> ${convertMarkdown(simplifyData.simplified)}`;
+                }
+              } catch (error) {
+                console.error("Error during simplification:", error);
+              }
+              simplifyBtn.disabled = false;
+              simplifyBtn.textContent = "Simplify";
+            });
+            botEntry.appendChild(simplifyBtn);
+      
+            // After typing, display suggestion buttons if available
+            if (data.suggestions && data.suggestions.length > 0) {
+              data.suggestions.forEach(suggestion => {
+                const button = document.createElement('button');
+                button.className = 'suggestion-btn';
+                button.innerHTML = convertMarkdown(suggestion);
+                button.onclick = () => {
+                  messageInput.value = suggestion;
+                  chatForm.dispatchEvent(new Event('submit'));
+                }
+                suggestionContainer.appendChild(button);
+              });
+            }
+          });
+        } catch (err) {
+          console.error("Error during fetch:", err);
+          loadingIndicator.style.display = 'none';
+          alert("An error occurred. Please try again.");
+        }
+      });
+      
+      document.getElementById('delete-history-btn').addEventListener('click', async () => {
+        const confirmation = confirm("Are you sure you want to delete your entire chat history?");
+        if (confirmation) {
+          try {
+            const response = await fetch('/delete_history', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' }
+            });
+            const data = await response.json();
+            if (data.status === "success") {
+              chatHistoryDiv.innerHTML = "";
+              alert("Chat history deleted.");
+            } else {
+              alert("Failed to delete history: " + data.error);
+            }
+          } catch (err) {
+            console.error("Error deleting history:", err);
+            alert("An error occurred while deleting history.");
+          }
+        }
+      });
+    });
+  </script>
+</body>
+</html>
